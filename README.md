@@ -5,13 +5,14 @@ Implement an user interface for the chat server. This GUI has IP, port and name 
 ## Environment Requirement
 - Python 3.6
 - PyQt5
+- PyCryptodome >= 3.11.0
 ### Run the Server
 ```
 python server.py --host 127.0.0.1 --port 33002
 ```
 ### Run the Client User Interface
 ```
-python chatUI_v22.py
+python chatUI_main.py
 ```
 ## Features
 ### General Design
