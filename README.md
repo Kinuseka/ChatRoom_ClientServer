@@ -2,6 +2,14 @@
 
 ## Project Information
 Implement an user interface for the chat server. This GUI has IP, port and name input line, and able to broadcast, privatly send, receive, and display messages according to the server protocol of string format.
+Forked from [fatliau](https://github.com/fatliau/ChatRoom_ClientServer)
+
+## Added and/or changed from fork:
+- Uses JSON serialization for sending over data
+- Uses AES/RSA for encrypting messages over TCP
+- Other Bug fixes (like chatbox does not automatically update when untabbed from chat)
+- Name duplicates will now be rejected.
+
 ## Environment Requirement
 - Python 3.6
 - PyQt5
