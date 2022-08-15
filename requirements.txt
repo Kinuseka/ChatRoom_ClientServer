@@ -1,0 +1,2 @@
+PyQt5
+PyCryptodome>=3.11.0
