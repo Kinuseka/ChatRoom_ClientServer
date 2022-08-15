@@ -1,23 +1,18 @@
 import argparse
-from ctypes import WinError
 from socket import AF_INET, socket, SOCK_STREAM
 from threading import Thread
 from threading import Event as ThreadEvent
-from xmlrpc.client import boolean
 import time
 import pickle
 import sys, os
-import uuid
 import json
-msg_log = []
-msg_show = 25
 from Crypto.Cipher import PKCS1_OAEP, AES
 from Crypto.PublicKey import RSA
-from Crypto import Random
 import random, string
-from Crypto.Util.Padding import pad, unpad
 from base64 import b64encode
 from base64 import b64decode
+msg_log = []
+msg_show = 25
 
 class CryptoCipher:
     def __init__(self,client):
@@ -41,6 +36,31 @@ class CryptoCipher:
         msg = json.dumps(message).encode("utf-8")
         self.client.send(msg)
        
+    def AES_Send(self,message,bytes=1024): # Send message via AES
+        cipher = AES.new(self.session_key, AES.MODE_EAX)
+        nonce = cipher.nonce
+        ciphertext, tag = cipher.encrypt_and_digest(message)
+        json_v = [ b64encode(x).decode('utf-8') for x in (nonce, ciphertext, tag)]
+        json_k = ['nonce', 'ciphertext', 'tag']
+        result = json.dumps(dict(zip(json_k, json_v))).encode("utf-8")
+        self.client.send(result)
+
+    def AES_recv(self,bytes=1024) -> bytes: # Receive message via AES
+        json_k = ['nonce', 'ciphertext', 'tag']
+        bytesr = self.client.recv(bytes)
+        b64 = json.loads(bytesr.decode("utf-8"))
+        datar = {k:b64decode(b64[k]) for k in json_k}
+        nonce = datar["nonce"]
+        tag = datar["tag"]
+        ciphertext = datar["ciphertext"]
+        cipher = AES.new(self.session_key, AES.MODE_EAX, nonce=nonce)
+        plaintext = cipher.decrypt(ciphertext)
+        try:
+            cipher.verify(tag)
+            return plaintext
+        except ValueError:
+            print("Message is not authentic rejected")
+            return ""
 
     def hello_handshake(self):
         print("performing handshake")
@@ -129,19 +149,11 @@ class CryptoCipher:
         self.client.send(c)
 
     def S_Pdecrypt(self):
-        # sk = open("secret_key.pem").read()
-        # key = RSA.import_key(sk)
-        # cipher = PKCS1_OAEP.new(key)
-        # m = cipher.decrypt(crypted_m)
-        # del sk
-        # del key
-        # del cipher
-        # return m
         msg = self.client.recv(2048)
         cipher = PKCS1_OAEP.new(self.private_key)
-        message = cipher.decrypt(loaded)
+        message = cipher.decrypt(msg)
         loaded = json.loads(message.decode("utf-8"))
-        return message
+        return loaded
 
     def Send_aeskey(self):
         self.session_key = self.generate_session()
@@ -149,31 +161,7 @@ class CryptoCipher:
         self.S_Pencrypt(client_pub)
         return True
     
-    def AES_Send(self,message,bytes=1024): # Send message via AES
-        cipher = AES.new(self.session_key, AES.MODE_EAX)
-        nonce = cipher.nonce
-        ciphertext, tag = cipher.encrypt_and_digest(message)
-        json_v = [ b64encode(x).decode('utf-8') for x in (nonce, ciphertext, tag)]
-        json_k = ['nonce', 'ciphertext', 'tag']
-        result = json.dumps(dict(zip(json_k, json_v))).encode("utf-8")
-        self.client.send(result)
 
-    def AES_recv(self,bytes=1024) -> bytes: # Receive message via AES
-        json_k = ['nonce', 'ciphertext', 'tag']
-        bytesr = self.client.recv(bytes)
-        b64 = json.loads(bytesr.decode("utf-8"))
-        datar = {k:b64decode(b64[k]) for k in json_k}
-        nonce = datar["nonce"]
-        tag = datar["tag"]
-        ciphertext = datar["ciphertext"]
-        cipher = AES.new(self.session_key, AES.MODE_EAX, nonce=nonce)
-        plaintext = cipher.decrypt(ciphertext)
-        try:
-            cipher.verify(tag)
-            return plaintext
-        except ValueError:
-            print("Message is not authentic rejected")
-            return ""
 
 def message_log_handler():
     if len(msg_log) >= msg_show:
@@ -203,8 +191,6 @@ def init_msg_log():
         print("Could not find msg_log no message history will be loaded")
     except EOFError:
         print("EOF error could not load messages")
-
-init_msg_log()
 
 
 def accept_incoming_connections():
@@ -290,7 +276,7 @@ class Client:
                     pass
                 if name:
                     send_message(format_message("MSG", f"{name} has left the chat."), broadcast=True)
-                    send_clients(self.crypto)
+                    send_clients()
                 break
 
             # Avoid messages before registering
@@ -382,7 +368,7 @@ def send_message(msg, prefix="", destination=None, broadcast=False): #Binary sho
     send_msg = msg
     if broadcast:
         """Broadcasts a message to all the clients."""
-        for cli in clients:
+        for cli in list(clients):
             try:
                 cli.send(send_msg)
             except OSError:
@@ -436,6 +422,7 @@ parser.add_argument(
 
 server_args = parser.parse_args()
 
+init_msg_log()
 
 HOST = server_args.host
 PORT = int(server_args.port)

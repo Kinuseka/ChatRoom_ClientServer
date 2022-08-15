@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 import platform
-from pydoc import plain
 Client_Version_Header = 0.25 #Current client version
 #Client version - must be a float 
 #Client machine - OS the client is on {p_os: platformOS, p_rl: platformSystem, p_ver: platformVersion}
@@ -13,6 +12,8 @@ client_details_header = [
 Created on Tue Jul 24 13:05:46 2018
 
 @forked by: Kinuseka
+v26
+Removed unnecessary imports and code cleaning
 v25
 Added RSA and AES message encryption
 v24
@@ -78,14 +79,13 @@ import sys
 import threading
 import time
 import functools
-from PyQt5 import QtCore, QtGui
+from PyQt5 import QtCore
 from PyQt5 import QtWidgets
 from PyQt5.QtWidgets import QMainWindow, QApplication, QWidget, QPushButton
 from PyQt5.QtWidgets import QVBoxLayout, QHBoxLayout, QMessageBox, QTabWidget
 from PyQt5.QtWidgets import QGridLayout, QScrollArea, QLabel, QListView
-from PyQt5.QtWidgets import QLineEdit, QComboBox, QGroupBox, QAction
+from PyQt5.QtWidgets import QLineEdit, QComboBox, QGroupBox
 from PyQt5.QtGui import QStandardItemModel, QStandardItem, QFont
-import pickle
 import json
 
 class MyTableWidget(QWidget):
@@ -579,9 +579,6 @@ class Window(QMainWindow):
 
 from Crypto.PublicKey import RSA
 from Crypto.Cipher import PKCS1_OAEP, AES
-from Crypto import Random
-from Crypto.Util.Padding import pad, unpad
-from hashlib import md5
 from base64 import b64encode
 from base64 import b64decode
 
@@ -614,7 +611,6 @@ class CryptoCipher:
         json_v = [ b64encode(x).decode('utf-8') for x in (nonce, ciphertext, tag)]
         result = json.dumps(dict(zip(json_k, json_v))).encode("utf-8")
         self.client.send(result)
-
 
     def AES_recv(self,bytes=1024) -> bytes: # Receive message via AES encryption
         json_k = ['nonce', 'ciphertext', 'tag']
@@ -720,14 +716,6 @@ class CryptoCipher:
         self.client.send(c)
 
     def S_Pdecrypt(self): #Receive VIA RSA encryption
-        # sk = open("secret_key.pem").read()
-        # key = RSA.import_key(sk)
-        # cipher = PKCS1_OAEP.new(key)
-        # m = cipher.decrypt(crypted_m)
-        # del sk
-        # del key
-        # del cipher
-        # return m
         msg = self.client.recv(2048)
         cipher = PKCS1_OAEP.new(self.private_key)
         message = cipher.decrypt(msg)
@@ -739,21 +727,6 @@ class CryptoCipher:
         strkey = str(key["server"]["secret"])
         self.session_key = strkey.encode("utf-8") 
         return True
-
-
-    def encrypt(self,message):
-        msg = json.dumps(message).encode("utf-8")
-        cipher = PKCS1_OAEP.new(self.client_public_key)
-        c = cipher.encrypt(msg)
-        self.client.send(c)
-
-    def decrypt(self,message):
-        msg = self.client.recv(2048)
-        cipher = PKCS1_OAEP.new(self.private_key)
-        message = cipher.decrypt(loaded)
-        loaded = json.loads(message.decode("utf-8"))
-        return message
-
 
 BUFSIZ = 4096
 def run():
